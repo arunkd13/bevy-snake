@@ -161,6 +161,44 @@ fn game_control_input(
     }
 }
 
+fn get_next_head_pos(
+    head_pos: Position,
+    direction: Direction,
+    segments: &Query<&mut Position, (With<SnakeSegment>, Without<SnakeHead>)>,
+) -> Option<Position> {
+    let mut next_head_pos = head_pos;
+    match direction {
+        Direction::Left => {
+            next_head_pos.x -= 1;
+        }
+        Direction::Right => {
+            next_head_pos.x += 1;
+        }
+        Direction::Up => {
+            next_head_pos.y += 1;
+        }
+        Direction::Down => {
+            next_head_pos.y -= 1;
+        }
+    }
+
+    if next_head_pos.x < 0
+        || next_head_pos.y < 0
+        || next_head_pos.x as u32 >= ARENA_WIDTH
+        || next_head_pos.y as u32 >= ARENA_HEIGHT
+    {
+        return None;
+    } else {
+        for segment_pos in segments.iter() {
+            if next_head_pos == *segment_pos {
+                return None;
+            }
+        }
+    }
+
+    return Some(next_head_pos);
+}
+
 fn snake_movement(
     mut heads: Query<(
         &mut Position,
@@ -182,6 +220,16 @@ fn snake_movement(
     }
 
     for (mut head_pos, mut head, body, mut last_tail_pos) in heads.iter_mut() {
+        if head.input_direction.is_some() {
+            head.direction = head.input_direction.unwrap();
+        }
+        let next_head_pos =
+            get_next_head_pos(*head_pos, head.direction, &segments);
+        if next_head_pos.is_none() {
+            app_state.set(AppState::Ended).unwrap();
+            return;
+        }
+
         let mut front_pos = *head_pos;
         for entity in body.0.iter() {
             let mut pos = segments.get_mut(*entity).unwrap();
@@ -190,37 +238,7 @@ fn snake_movement(
             front_pos = temp_pos;
         }
         *last_tail_pos = LastTailPos(front_pos);
-        if head.input_direction.is_some() {
-            head.direction = head.input_direction.unwrap();
-        }
-        match head.direction {
-            Direction::Left => {
-                head_pos.x -= 1;
-            }
-            Direction::Right => {
-                head_pos.x += 1;
-            }
-            Direction::Up => {
-                head_pos.y += 1;
-            }
-            Direction::Down => {
-                head_pos.y -= 1;
-            }
-        }
-
-        if head_pos.x < 0
-            || head_pos.y < 0
-            || head_pos.x as u32 >= ARENA_WIDTH
-            || head_pos.y as u32 >= ARENA_HEIGHT
-        {
-            app_state.set(AppState::Ended).unwrap();
-        } else {
-            for segment_pos in segments.iter() {
-                if *head_pos == *segment_pos {
-                    app_state.set(AppState::Ended).unwrap();
-                }
-            }
-        }
+        *head_pos = next_head_pos.unwrap();
     }
 }
 
