@@ -1,5 +1,7 @@
 This is my take on implementing the Snake game using Bevy game engine based on the excellent tutorial at https://mbuffett.com/posts/bevy-snake-tutorial/
 
+Play the WASM version here online: https://arunkd13.github.io/bevy-snake/
+
 == Running ==
 === Desktop ===
 ```
