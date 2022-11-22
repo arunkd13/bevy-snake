@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::time::Duration;
 
 use bevy::log::LogSettings;
@@ -43,7 +44,7 @@ impl Direction {
 #[derive(Component)]
 struct SnakeHead {
     direction: Direction,
-    input_direction: Option<Direction>,
+    input_direction_queue: VecDeque<Direction>,
 }
 
 #[derive(Component)]
@@ -127,21 +128,23 @@ fn snake_head_movement_input(
     mut q: Query<&mut SnakeHead>,
 ) {
     for mut head in q.iter_mut() {
-        let dir: Option<Direction> = if keyboard_input.pressed(KeyCode::Left) {
+        let dir: Option<Direction> = if keyboard_input.just_pressed(KeyCode::Left) {
             Some(Direction::Left)
-        } else if keyboard_input.pressed(KeyCode::Right) {
+        } else if keyboard_input.just_pressed(KeyCode::Right) {
             Some(Direction::Right)
-        } else if keyboard_input.pressed(KeyCode::Up) {
+        } else if keyboard_input.just_pressed(KeyCode::Up) {
             Some(Direction::Up)
-        } else if keyboard_input.pressed(KeyCode::Down) {
+        } else if keyboard_input.just_pressed(KeyCode::Down) {
             Some(Direction::Down)
         } else {
             None
         };
 
         if dir.is_some() {
-            if dir.unwrap() != head.direction.opposite() {
-                head.input_direction = dir;
+            let dir = dir.unwrap();
+            let prev_dir = head.input_direction_queue.back().unwrap_or(&head.direction);
+            if dir != *prev_dir && dir != prev_dir.opposite() {
+                head.input_direction_queue.push_back(dir);
             }
         }
     }
@@ -220,8 +223,8 @@ fn snake_movement(
     }
 
     for (mut head_pos, mut head, body, mut last_tail_pos) in heads.iter_mut() {
-        if head.input_direction.is_some() {
-            head.direction = head.input_direction.unwrap();
+        if !head.input_direction_queue.is_empty() {
+            head.direction = head.input_direction_queue.pop_front().unwrap();
         }
         let next_head_pos =
             get_next_head_pos(*head_pos, head.direction, &segments);
@@ -300,7 +303,7 @@ fn spawn_snake(mut commands: Commands, mut app_state: ResMut<State<AppState>>) {
         })
         .insert(SnakeHead {
             direction: Direction::Up,
-            input_direction: None,
+            input_direction_queue: VecDeque::new(),
         })
         .insert(SnakeSegment)
         .insert(Position { x: 3, y: 3 })
